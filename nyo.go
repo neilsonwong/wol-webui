@@ -9,8 +9,9 @@ import (
 
 func main() {
 	fmt.Println("Hello, World!")
-	mac := "00:24:1D:D3:FD:CE"
-	wake(mac)
+	// mac := "00:24:1D:D3:FD:CE"
+	// wake(mac)
+	ListenAndServe()
 }
 
 // Run the wake command.
