@@ -1,4 +1,4 @@
-package networking
+package main
 
 import (
 	"fmt"
@@ -7,21 +7,24 @@ import (
 	gowol "github.com/sabhiram/go-wol/wol"
 )
 
-// WakeByIP will wake a node by IP
-func WakeByIP(ipAddr string) error {
-	// Get MAC by IP
-	mac := getMacFromIP(ipAddr)
+const defaultBcastAddr = "255.255.255.255:9"
 
-	// wake by MAC
-	return wake(mac)
+// Wake will wake up a computer with the specified mac address
+func Wake(macAddr string) error {
+	return wakeByMac(macAddr, "")
 }
 
-func getMacFromIP(ipAddr string) string {
-	return ""
+// WakeWithBcast will wake up a computer with the specified mac address
+// It will use the passed in broadcast address
+func WakeWithBcast(macAddr string, bcastAddr string) error {
+	return wakeByMac(macAddr, bcastAddr)
 }
 
-func wake(macAddr string) error {
-	bcastAddr := "255.255.255.255:9"
+func wakeByMac(macAddr string, bcastAddr string) error {
+	if len(bcastAddr) == 0 {
+		bcastAddr = defaultBcastAddr
+	}
+
 	udpAddr, err := net.ResolveUDPAddr("udp", bcastAddr)
 
 	if err != nil {
