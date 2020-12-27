@@ -9,9 +9,9 @@ const (
 
 // Device represents a
 type Device struct {
-	id   string
-	kind string
-	name string
-	ip   string
-	mac  string
+	ID   string `json:"id"`
+	Kind string `json:"kind"`
+	Name string `json:"name"`
+	IP   string `json:"ip"`
+	Mac  string `json:"mac"`
 }

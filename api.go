@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -18,13 +19,16 @@ func ListenAndServe() {
 
 	router.Route("/api", func(r chi.Router) {
 		r.Route("/device", func(r chi.Router) {
+			r.Post("/", handleAddDevice)
 			r.Route("/{deviceID}", func(r chi.Router) {
 				r.Use(deviceCtx)
+				r.Get("/", handleGetDevice)
+				r.Put("/", handleUpdateDevice)
 				r.Post("/wake", handleWake)
 				r.Post("/ping", handlePing)
 			})
-			r.Get("/search", handleSearch)
 		})
+		r.Get("/devices", handleList)
 	})
 
 	err := http.ListenAndServe(":8084", router)
@@ -34,18 +38,11 @@ func ListenAndServe() {
 func deviceCtx(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		deviceID := chi.URLParam(r, "deviceID")
-		device := &Device{
-			id:   deviceID,
-			name: "test-device",
-			kind: COMPUTER,
-			ip:   "",
-			mac:  "",
+		device := GetDevice(deviceID)
+		if device == nil {
+			http.Error(w, http.StatusText(404), 404)
+			return
 		}
-
-		// if err != nil {
-		// 	http.Error(w, http.StatusText(404), 404)
-		// 	return
-		// }
 		ctx := context.WithValue(r.Context(), "device", device)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
@@ -60,8 +57,9 @@ func handleWake(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// send the wake
+	WakeDevice(*device)
 
-	fmt.Fprintf(w, "waking %s", device.id)
+	fmt.Fprintf(w, "waking %s", device.ID)
 }
 
 func handlePing(w http.ResponseWriter, r *http.Request) {
@@ -74,13 +72,65 @@ func handlePing(w http.ResponseWriter, r *http.Request) {
 
 	// send the ping
 
-	fmt.Fprintf(w, "pinging %s", device.id)
+	fmt.Fprintf(w, "pinging %s", device.ID)
 }
 
-func handleSearch(w http.ResponseWriter, r *http.Request) {
-	// send the search
+func handleGetDevice(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	device, ok := ctx.Value("device").(*Device)
+	if !ok {
+		http.Error(w, http.StatusText(422), 422)
+		return
+	}
 
-	fmt.Fprintf(w, "searching")
+	w.Header().Set("Content-Type", "application/json")
+
+	err := json.NewEncoder(w).Encode(device)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+func handleAddDevice(w http.ResponseWriter, r *http.Request) {
+	var device Device
+
+	err := json.NewDecoder(r.Body).Decode(&device)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	AddNewDevice(device)
+
+	fmt.Fprintf(w, "updating %s", device.ID)
+}
+
+func handleUpdateDevice(w http.ResponseWriter, r *http.Request) {
+	deviceID := chi.URLParam(r, "deviceID")
+	var device Device
+
+	err := json.NewDecoder(r.Body).Decode(&device)
+	if err != nil || device.ID != deviceID {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	UpdateDevice(device)
+
+	fmt.Fprintf(w, "updated %s", device.ID)
+}
+
+func handleList(w http.ResponseWriter, r *http.Request) {
+	// send the search
+	w.Header().Set("Content-Type", "application/json")
+	d := ListDevices()
+
+	err := json.NewEncoder(w).Encode(d)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 }
 
 func corsMiddleware() func(http.Handler) http.Handler {
